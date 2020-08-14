@@ -1,0 +1,40 @@
+include:
+  - docassemble.MAVirtualCourt:basic-questions.yml
+---
+objects:
+  - redis: DARedis
+---
+comment: |
+  Send to othere people by sms or email or they are physically present or you can sign for them.
+    cosigners_sign_method
+    send_to_remote_signers
+      gather_redis_keys_and_data
+      save_to_redis
+      send_to_each_signer
+    get_signatures
+      load_from_redis
+      send_to_device_choice
+---
+# URL needs to include user_id and preview_id
+event: get_redis_data
+code: |
+  if 'user_id' in url_args:
+    user_data = redis.get_data(url_args('user_id'))
+    user = user_data['user']
+  if 'preview_id' in url_args:
+    preview_attachment = redis.get_data(url_args('preview_id'))
+---
+---
+code: |
+  #redis.set_data(redis_key, encrypted_vars, expire=expire)
+  redis.set_data('1', { 'user': users[0] }, expire=1)
+  redis.set_data('2', { 'user': others[0] }, expire=1)
+  redis.set_data('3', { 'preview': signature_doc }, expire=1)
+  save_to_redis = True
+---
+code: |
+  redis.get_data('1')['user']
+  redis.get_data('1')['preview']
+
+
+

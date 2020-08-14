@@ -1,0 +1,47 @@
+---
+mandatory: True
+code: |
+  multi_user = True
+  show_url
+  wait
+---
+code: |
+  log( interview_url_action( 'from_action', chair='wood' ), 'console')
+  show_url = True
+---
+event: from_action
+code: |
+  log( 'got here', 'console' )
+  log( action_arguments(), 'console' )
+  end
+---
+event: wait
+question: |
+  Do other stuff
+buttons:
+  - Exit: exit
+---
+event: end
+question: |
+  ${ action_argument('chair') }
+buttons:
+  - Exit: exit
+---
+event: wait
+question: |
+  Do other stuff
+subquestion: |
+  [link](${interview_url_action( 'from_action', chair='wood' )})
+buttons:
+  - Exit: exit
+---
+#event: end
+#question: |
+#  ${ action_argument('chair') }
+#buttons:
+#  - Exit: exit
+#---
+#code: |
+#  log( interview_url_action( 'from_action', chair='wood' ), 'console')
+#  show_url = True
+#

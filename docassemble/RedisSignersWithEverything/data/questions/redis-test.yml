@@ -1,0 +1,55 @@
+---
+modules:
+  - docassemble.VirtualCourtToolbox.shortenURL
+---
+include:
+  - sign_on_device.yml
+  - docassemble.MAVirtualCourt:basic-questions.yml
+---
+objects:
+  - all_signers: PeopleList.using(auto_gather=False)
+  - others: PeopleList.using(auto_gather=False)
+  - redis: DARedis
+---
+mandatory: True
+code: |
+  users[0].name.first
+  users.gathered = True
+  users.there_is_another = False
+  others[0].name.first
+  others.gathered = True
+  others.there_is_another = False
+  all_signers = users + others
+  all_signers.gathered = True
+  all_signers.there_is_another = False
+
+  save_to_redis
+
+  #users[0].sent_to_signature
+  signature_doc
+  download_doc
+---
+id: document
+event: download_doc
+generic object: Individual
+prevent going back: True
+question: |
+  Test signatures for ${ x }
+subquestion: |
+  Redis data:
+  
+  ${ redis.get_data('1')['user'] }
+  ${ redis.get_data('1')['preview'] }
+---
+attachment:
+  name: Signatures doc
+  variable name: signature_doc
+  filename: signatures
+  docx template file: test-signatures.docx
+---
+code: |
+  #redis.set_data(redis_key, encrypted_vars, expire=expire)
+  redis.set_data('1', { 'user': users[0], 'preview': signature_doc }, expire=1)
+  redis.set_data('2', { 'user': others[0], 'preview': signature_doc }, expire=1)
+  save_to_redis = True
+---

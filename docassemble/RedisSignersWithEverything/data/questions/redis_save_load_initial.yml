@@ -1,0 +1,89 @@
+objects:
+  - redis: DARedis
+  - data_dict: DADict.using(there_is_another=False, gathered= True)
+---
+mandatory: True
+code: |
+  expire = 6 * 60 * 60 * 1000
+  #email
+  log( remote_url, 'console' )
+  #send_an_email
+  set_redis_data
+  initial
+  result
+---
+code: |
+  redis.set_data( 'string_' + random_key, 'string test', expire=expire)
+  data_dict[ 'dict_value_key' ] = 'dict test'
+  redis.set_data( 'dict_' + random_key, data_dict, expire=expire)
+  set_redis_data = True
+---
+#reconsider:
+#  - string_value
+question: |
+  Main user Started
+subquestion: |
+  ${ redis.get_data( 'string_' + random_key ) }
+
+  ${ redis.get_data( 'dict_' + random_key )[ 'dict_value_key' ] }
+continue button field: initial
+---
+event: result
+#reconsider:
+#  - string_value
+question: |
+  Main user After (if you went to the other link first)
+subquestion: |
+  ${ redis.get_data( 'string_' + random_key ) }
+
+  ${ redis.get_data( 'dict_' + random_key )[ 'dict_value_key' ] }
+---
+question: |
+  Email
+fields:
+  - no label: email
+    datatype: email
+---
+code: |
+  send_email(to=email, template=message_template)
+  send_an_email = True
+---
+#code: |
+#  string_value = redis.get_data( 'string_' + random_key )
+#  dict_value = redis.get_data( 'dict_' + random_key )
+---
+#event: string_result
+#reconsider:
+#  - string_value
+#  - dict_result
+#question: |
+#  string_result
+#subquestion: |
+#  ${ string_value }
+#---
+#event: dict_result
+#question: |
+#  dict_result
+#subquestion: |
+#  ${ redis.get_data( 'dict_' + random_key ) }
+---
+template: message_template
+subject: Redis tests
+content: |
+  Dear JC,
+  
+  I've sent you the document I asked you to sign. This link should get you there. Tell your mom I appreciated her gift.
+
+  ${ remote_url }
+---
+code: |
+  remote_url = interview_url(redis_key=random_key, new_session='1', i='docassemble.playground12MultiSignatureRedis:redis_save_load_remote.yml')
+---
+code: |
+  random_key = get_random_chars(20)
+---
+code: |
+  import random
+  import string
+  def get_random_chars(num_chars=10):
+    return ''.join(random.choice(string.ascii_lowercase) for i in range(10))

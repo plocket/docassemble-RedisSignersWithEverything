@@ -1,0 +1,175 @@
+comment: |
+  A flow for allowing signers to sign on the device with which they are most comfortable.
+
+  `generic object` is being used to allow more flexibility for developers using this module.
+  
+  Limitations:
+  - Devices don't prevent each other from signing. TODO: Try sending action arguments with every keypress and... something and checking action arguments in every block. Not sure that's possible.
+  - Right now the signer can't pick any device they want. It only differentiates between using a computer and a mobile device. A mobile device will always only present a signature. The execution order for handling multiple devices is complex unless it's broken into multiple interviews.
+---
+# TODO: Test-run sending sms
+# TODO: Try using action arguments for all devices
+
+# This was going to be flexible enough to use in any interview
+# but I'm not sure now. Maybe an action argument would be good.
+event: x.sign_on_device
+generic object: Individual
+code: |
+  # current bugs
+  # - Remote users never see the doc update (not MVP) (multiuser da example may have some clues)
+  #x.has_signed = False  # False to start
+  
+  if x.has_signed:
+    x.after_signature
+
+  # which_device: atm really means 'wants to use any computer'
+  # If not on computer or wants to sign on computer
+  elif (device() and not device().is_pc) or x.which_device == 'this device':
+    x.signature.set_attributes(persistent=True, private=False)
+    x.after_signature
+  else:
+    x.mobile_number
+    x.send_signature_link
+    x.wait_for_signature
+---
+event: x.wait_for_signature
+generic object: Individual
+code: |
+  if x.wants_to_change_device is True:
+    # Reset and start over again
+    undefine( x.instanceName + '.which_device' )
+    undefine( x.instanceName + '.send_method' )
+    undefine( x.instanceName + '.wants_to_change_device' )
+    x.sign_on_device
+  else:
+    if defined( x.instanceName + '.signature' ):
+      x.after_signature
+    else:
+      # Allow changing of waiting page text
+      x.said_had_signed_on_other_device = True
+      undefine( x.instanceName + '.wants_to_change_device' )
+      x.wait_for_signature
+---
+# Starting value
+generic object: Individual
+code: |
+  x.said_had_signed_on_other_device = False
+---
+generic object: Individual
+code: |
+  x.has_signed = False
+---
+generic object: Individual
+code: |
+  # TODO: Send with action arguments
+  # action arguments are in templates
+  #if x.send_method == 'text':
+  #  x.send_sms_signature_link
+  #elif x.send_method == 'email':  # Not implemented for MVP
+  #  x.send_email_signature_link
+  x.message_result = send_sms(task='send link to other device', to=x.mobile_number, template=x.sms_device_template)
+  x.send_signature_link = True
+---
+#generic object: Individual
+#template: x.sms_device_template
+#content:
+#  You have chosen to sign on this device, ${ x }. [Sign your document](${ interview_url_action('x.sign_on_device', status='normal') }).
+---
+#generic object: Individual
+#code: |
+#  x.signature_url_string = interview_url(
+#    action_key = action_key,
+#    party_id = x.id,
+#    new_session = '1',
+#    i=remote_signer_url_end
+#  )
+#
+#  x.signature_url = shortenMe( x.signature_url_string ).shortenedURL
+---
+#modules:
+#  - docassemble.VirtualCourtToolbox.shortenURL
+---
+id: x.willing_to_sign
+generic object: Individual
+question: |
+  x.willing_to_sign
+yesno: x.willing_to_sign
+---
+id: x.end_with_unwilling_to_sign
+event: x.end_with_unwilling_to_sign
+generic object: Individual
+question: |
+  Thank you
+subquestion: |
+  You can close this window now.
+---
+# TODO: Always send with action arguments with unique ID
+id: x.which_device
+generic object: Individual
+question: |
+  Where do you want to sign this?
+subquestion: |
+  Do you want to sign on this computer or on a phone or tablet instead?
+field: x.which_device
+buttons:
+  - This computer: this device
+    image: desktop
+  - A phone or tablet: other device
+    image: mobile-alt
+script: |
+  <script>
+    $(".da-field-buttons > div > .btn-da-custom").last().after("<br>")
+    $(".da-field-buttons > div > .btn-da-custom").first().before("<br>")
+  </script>
+---
+id: x.signature
+generic object: Individual
+question: |
+  x.signature
+signature: x.signature
+---
+id: x.after_signature
+event: x.after_signature
+generic object: Individual
+code: |
+  x.status
+---
+id: x.status
+event: x.status
+generic object: Individual
+question: |
+  x.status
+---
+id: send_method
+# for now, just get the mobile number
+generic object: Individual
+question: |
+  Send this to your mobile device
+subquestion: |
+  You can use a QR code that will be here or you can text your mobile device.
+fields:
+  - Number to text: x.mobile_number
+---
+#id: x.send_sms_signature_link
+#event: x.send_sms_signature_link
+#generic object: Individual
+#code: |
+#  log( 'send_sms_signature_link', 'console' )
+#  log( url_args, 'console')
+#---
+#id: x.send_email_signature_link
+#event: x.send_email_signature_link
+#generic object: Individual
+#code: |
+#  # Will need url arguments
+#  log( 'send_email_signature_link', 'console' )
+#  log( url_args, 'console')
+---
+id: x.wants_to_change_device
+generic object: Individual
+question: |
+  x.wants_to_change_device or done with signing
+field: x.wants_to_change_device
+buttons:
+  - Change my device: True
+  - Check for signature: False

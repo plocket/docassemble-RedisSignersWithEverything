@@ -1,0 +1,149 @@
+modules:
+  - .signing_party
+---
+include:
+  - remote_sign_on_device.yml
+---
+objects:
+  - redis: DARedis
+  - signer: Individual
+  - signer.devices: DAList.using(object_type=DAObject, auto_gather=False, gathered=True, there_is_another=False)
+---
+mandatory: True
+code: |
+  multi_user = True
+---
+# Currently getting here with the url in the console of the initial interview
+mandatory: True
+code: |
+  get_remote_signature
+---
+event: get_remote_signature
+code: |
+  #devices[0] = devices.appendObject()
+  data = None
+  if action_argument() and action_argument('action_key'):
+    data = {
+      #'parent_interview_data_id': action_argument('parent_interview_data_id'),
+      'action_key': action_argument('action_key'),
+      'party_id': action_argument('party_id')
+    }
+  elif 'action_key' in url_args:
+    data = url_args
+
+  if data:
+    #parent_interview_data_id = data['parent_interview_data_id']
+    action_key = data['action_key']
+    party = get_signer( data )
+    if party:
+      signer.id = data['party_id']
+      signer.name.first = party[ 'name' ]
+      signer.has_signed = party[ 'has_signed' ]
+      was_willing = party[ 'willing_to_sign' ]
+
+      # Skip question if they've already signed or were already willing to sign.
+      # Should `.has_signed` be handled here or passed on to `.sign_on_device` which already has to be set up to handle it?
+      if signer.has_signed or was_willing is True or signer.willing_to_sign:
+        amend_signer( url_args, 'willing_to_sign', True )
+        signer.sign_on_device
+      else:
+        amend_signer( url_args, 'willing_to_sign', False )
+        signer.after_unwilling_to_sign
+
+  ## Untested
+  #else:
+  #  unauthorized
+  
+---
+###################
+#  Must be defined
+##################
+---
+id: x.after_signature
+event: x.after_signature
+generic object: Individual
+code: |
+  if not x.has_signed:
+    amend_signer( url_args, 'signature', x.signature )
+    amend_signer( url_args, 'signature_date', today()  )
+    amend_signer( url_args, 'has_signed', True )
+
+  x.after_signature_saved
+---
+id: x.after_unwilling_to_sign
+event: x.after_unwilling_to_sign
+generic object: Individual
+code: |
+  amend_signer( url_args, 'willing_to_sign', False )
+  x.after_unwilling_to_sign_saved
+---
+generic object: Individual
+template: x.sms_device_template
+content:
+  You have chosen to sign on this device, ${ x }. [Sign your document](${ device_choice_url }). ${ device_choice_url }
+---
+code: |
+  device_choice_url = interview_url_action( 'get_remote_signature', device_id='tbd', action_key=action_key, party_id=signer.id )
+  #parent_interview_data_id=parent_interview_data_id,
+  short_device_choice_url = shortenMe( device_choice_url ).shortenedURL
+---
+modules:
+  - docassemble.VirtualCourtToolbox.shortenURL
+---
+###################
+#  Customizable?/Should be customized
+##################
+---
+id: x.after_signature_saved
+event: x.after_signature_saved
+generic object: Individual
+code: |
+  x.end
+  #x.status
+---
+id: remote signer end
+generic object: Individual
+event: x.end
+question: |
+  Thank you
+subquestion: |
+  You have signed ${ redis.get_data( url_args['action_key'] )['user_names'] }'s document. They will get your signature soon.
+---
+# Doc is `None` when we try to use signatures
+id: signature status
+event: x.status
+generic object: Individual
+prevent going back: True
+question: |
+  Signature status for ${ x }
+subquestion: |
+  ${ redis.get_data( url_args['action_key'] )['user_names'] }'s document.
+  
+  ${ redis.get_data( url_args['action_key'] )[ 'signed_doc' ] }
+---
+id: signature
+generic object: Individual
+question: |
+  Signature ${ x }
+signature: x.signature
+---
+id: unwilling to sign end
+generic object: Individual
+event: x.after_unwilling_to_sign_saved
+question: |
+  Thank you and goodbye
+buttons:
+  - Exit: exit
+---
+id: unauthorized
+event: unauthorized
+question: |
+  Thank you and goodbye
+buttons:
+  - Exit: exit
+---
+id: x.willing_to_sign
+generic object: Individual
+question: |
+  Are you willing to sign this document?
+yesno: x.willing_to_sign

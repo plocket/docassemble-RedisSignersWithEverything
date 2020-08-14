@@ -1,0 +1,39 @@
+objects:
+  - redis: DARedis
+---
+mandatory: True
+code: |
+  key = url_args[ 'redis_key' ]
+  data = redis.get_data( 'dict_' + key )
+  initial
+  redis.set_data( 'string_' + key, 'new value!' )
+  set_data
+  result
+---
+code: |
+  data[ 'dict_value_key' ] = 'new dict value'
+  log( repr(data), 'console' )
+  redis.set_data( 'dict_' + key, data )
+  log( redis.get_data( 'dict_' + key )[ 'dict_value_key' ], 'console' )
+  set_data = True
+---
+question: |
+  Initial
+subquestion: |
+  ${ redis.get_data( 'string_' + key ) }
+  
+  ${ data[ 'dict_value_key' ] }
+  
+  ${ redis.get_data( 'dict_' + key )[ 'dict_value_key' ] }
+continue button field: initial
+---
+event: result
+question: |
+  Result
+subquestion: |
+  ${ redis.get_data( 'string_' + key ) }
+  
+  ${ data[ 'dict_value_key' ] }
+  
+  ${ redis.get_data( 'dict_' + key )[ 'dict_value_key' ] }
+---
